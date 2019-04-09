@@ -1,0 +1,134 @@
+	#include<stdio.h>
+	#include<pthread.h>
+	#include<stdlib.h>
+	#include <unistd.h>
+	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t  completed_con  = PTHREAD_COND_INITIALIZER;
+	int i,j;
+	int bar = 0;
+	int thread_max;
+	int bar_size;
+	int count=0;
+	int invo_bar = 0;
+	void bar_init(int n_thread)
+	{
+	    if ( thread_max < bar_size ) { bar = thread_max; return; }
+	    bar = n_thread;
+	}
+	
+	int decrement()
+	{
+	    if (bar == 0) {
+	
+	        return 0;
+	    }
+	
+	    if(pthread_mutex_lock(&lock) != 0)
+	    {
+	        perror("lock achive failed .");
+	        return -1;
+	    }
+	
+	    bar--;
+	
+	    if(pthread_mutex_unlock(&lock) != 0)
+	    {
+	        perror("lock release failed");
+	        return -1;
+	    }
+	
+	    return 0;
+	}	
+	int wait_bar()
+	{
+	    if(decrement() < 0)
+	    {
+	        return -1;
+	    }
+	
+	    while (bar)
+	    {
+	        if(pthread_mutex_lock(&lock) != 0)
+	        {
+	            perror("\n locking error");
+	            return -1;
+	        }
+	
+	        if(pthread_cond_wait(&completed_con, &lock) != 0)
+	        {
+	            perror("\n cond wait error");
+	            return -1;
+	        }
+	    }
+	    if(0 == bar)
+	    {
+	        if(pthread_mutex_unlock(&lock) != 0)
+	        {
+	            perror("\n locking error");
+	            return -1;
+	        }
+	        if(pthread_cond_signal(&completed_con) != 0)
+	        {
+	            perror("\n exit error.");
+	            return -1;
+	        }
+	    }
+	
+	    return 0;
+	}
+	
+	void * bar_point(void *numthreads)
+	{
+	
+	     int r = rand() % 5;
+	
+	     printf("\nThreads %d \nPerform Init task of size %d Sec\n",++count,r);
+	     sleep(r);
+	
+	     wait_bar();
+	     if (bar_size!=0) {
+	       if ((thread_max - (invo_bar++) ) % bar_size == 0) {
+	         printf("\nBar Release\n");
+	       }
+	       printf("\nTask performed after bar\n");
+	
+	     }
+	
+	
+	     return  NULL;
+	}
+	int main()
+	{
+	
+	    printf("Give bar length\n");
+	    scanf("%d", &bar_size);
+	
+	    printf("Give the number of thread\n");
+	    scanf("%d", &thread_max);
+	
+	
+	
+	    if (bar_size>=0 && thread_max>=0) {
+	        pthread_t tid[thread_max];
+	
+	        bar_init(bar_size);
+	
+	        for(i =0; i < thread_max; i++)
+	        {
+	            pthread_create(&(tid[i]), NULL, &bar_point, &thread_max);
+	        }
+	
+	
+	        for(j = 0; j < thread_max; j++)
+	        {
+	            pthread_join(tid[j], NULL);
+	        }
+	    }
+	
+	    else{
+	      printf("value you entered is not correct.\n");
+	      main();
+	    }
+	
+	    return 0;
+	}
